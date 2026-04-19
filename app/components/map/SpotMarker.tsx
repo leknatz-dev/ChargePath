@@ -1,79 +1,92 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { Marker } from 'react-native-maps';
 import type { Spot } from '../../types/map';
 
-const MARKER_COLOR = '#34C759';
-const LARGE_ICON_SIZE = 32;
-const SMALL_ICON_SIZE = 24;
-const ZOOM_THRESHOLD = 0.015;
+const ZOOM_FULL = 0.02;
+const ZOOM_DOT = 0.038;
+
+type ZoomLevel = 'full' | 'small' | 'dot';
+
+function getZoomLevel(zoom: number): ZoomLevel {
+  if (zoom < ZOOM_FULL) return 'full';
+  if (zoom < ZOOM_DOT) return 'small';
+  return 'dot';
+}
 
 type SpotMarkerProps = {
   spot: Spot;
   zoom: number;
-  onPress: () => void;
   selected?: boolean;
+  onPress: (spot: Spot) => void;
 };
 
-export function SpotMarker({ spot, zoom, onPress, selected = false }: SpotMarkerProps) {
-  const iconSize = zoom > ZOOM_THRESHOLD ? LARGE_ICON_SIZE : SMALL_ICON_SIZE;
-  const glowSize = iconSize + 24;
+export function SpotMarker({
+  spot,
+  zoom,
+  selected = false,
+  onPress,
+}: SpotMarkerProps) {
+  const zoomLevel = getZoomLevel(zoom);
+
+  if (zoomLevel === 'dot') {
+    return (
+      <Marker
+        coordinate={{ latitude: spot.latitude, longitude: spot.longitude }}
+        anchor={{ x: 0.5, y: 0.5 }}
+        tracksViewChanges={false}
+        onPress={() => onPress(spot)}
+        image={require('../../../assets/images/pin-dot.png')}
+      />
+    );
+  }
+
+  const iconSize = zoomLevel === 'full' ? 28 : 20;
+
+  if (spot.type === 'hybrid') {
+    return (
+      <Marker
+        coordinate={{ latitude: spot.latitude, longitude: spot.longitude }}
+        anchor={{ x: 0.5, y: 1 }}
+        tracksViewChanges={false}
+        onPress={() => onPress(spot)}
+        image={require('../../../assets/images/pin-hybrid.png')}
+        style={{ width: iconSize, height: iconSize, opacity: selected ? 0.6 : 1 }}
+      />
+    );
+  }
 
   return (
     <Marker
       coordinate={{ latitude: spot.latitude, longitude: spot.longitude }}
-      anchor={{ x: 0.5, y: 0.5 }}
+      anchor={{ x: 0.5, y: 1 }}
       tracksViewChanges={false}
-      onPress={onPress}
-    >
-      <View style={styles.iconWrapper}>
-        {selected && (
-          <View
-            style={[
-              styles.selectionGlow,
-              {
-                width: glowSize,
-                height: glowSize,
-                borderRadius: glowSize / 2,
-              },
-            ]}
-          />
-        )}
-        {selected && (
-          <View style={styles.selectedBadge}>
-            <Ionicons name="flash" size={14} color="#34C759" />
-          </View>
-        )}
-        <Ionicons name="flash" size={iconSize} color={MARKER_COLOR} />
-      </View>
-    </Marker>
+      onPress={() => onPress(spot)}
+      image={require('../../../assets/images/pin-charging.png')}
+      style={{ width: iconSize, height: iconSize, opacity: selected ? 0.6 : 1 }}
+    />
   );
 }
 
-const styles = StyleSheet.create({
-  iconWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selectionGlow: {
-    position: 'absolute',
-    backgroundColor: 'rgba(52, 199, 89, 0.18)',
-  },
-  selectedBadge: {
-    position: 'absolute',
-    top: -24,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#34C759',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-  },
-});
+// ---------------------------------------------------------------------------
+// Ghost Marker
+// ---------------------------------------------------------------------------
+type GhostMarkerProps = {
+  coordinate: { latitude: number; longitude: number };
+  selectionMode: 'tap' | 'crosshair';
+};
+
+export function GhostMarker({ coordinate, selectionMode }: GhostMarkerProps) {
+  return (
+    <Marker
+      coordinate={coordinate}
+      anchor={{ x: 0.5, y: 1 }}
+      tracksViewChanges={true}
+      image={
+        selectionMode === 'crosshair'
+          ? require('../../../assets/images/pin-charging.png')
+          : require('../../../assets/images/pin-hybrid.png')
+      }
+      style={{ opacity: 0.5 }}
+    />
+  );
+}

@@ -1,6 +1,5 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, View } from 'react-native';
 import type { SelectionMode } from '../../types/map';
 
 type SelectionModeControlsProps = {
@@ -9,61 +8,91 @@ type SelectionModeControlsProps = {
   showCrosshair: boolean;
 };
 
-export function SelectionModeControls({ selectionMode, onChangeMode, showCrosshair }: SelectionModeControlsProps) {
+export function SelectionModeControls({
+  showCrosshair,
+}: SelectionModeControlsProps) {
   return (
     <>
       {showCrosshair && (
         <View style={styles.crosshairOverlay} pointerEvents="none">
-          <Ionicons name="add" size={40} color="#34C759" />
+          <View style={styles.crosshairLineH} />
+          <View style={styles.crosshairLineV} />
+          <View style={styles.crosshairDot} />
+          <View style={[styles.corner, styles.cornerTL]} />
+          <View style={[styles.corner, styles.cornerTR]} />
+          <View style={[styles.corner, styles.cornerBL]} />
+          <View style={[styles.corner, styles.cornerBR]} />
         </View>
       )}
-      <View style={styles.buttonContainer} pointerEvents="box-none">
-        <TouchableOpacity
-          style={[styles.button, selectionMode === 'crosshair' && styles.buttonActive]}
-          onPress={() => onChangeMode('crosshair')}
-        >
-          <Ionicons name="add" size={24} color={selectionMode === 'crosshair' ? 'white' : '#333'} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, selectionMode === 'tap' && styles.buttonActive]}
-          onPress={() => onChangeMode('tap')}
-        >
-          <Ionicons name="hand-left-outline" size={24} color={selectionMode === 'tap' ? 'white' : '#333'} />
-        </TouchableOpacity>
-      </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  buttonContainer: {
-    position: 'absolute',
-    top: 60,
-    right: 5,
-    flexDirection: 'column',
-  },
-  button: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'white',
-    elevation: 5,
+  crosshairOverlay: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 10,
+    zIndex: 10,
   },
-  buttonActive: {
+  crosshairLineH: {
+    position: 'absolute',
+    width: 44,
+    height: 1.5,
+    backgroundColor: 'rgba(52, 199, 89, 0.8)',
+  },
+  crosshairLineV: {
+    position: 'absolute',
+    width: 1.5,
+    height: 44,
+    backgroundColor: 'rgba(52, 199, 89, 0.8)',
+  },
+  crosshairDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: '#34C759',
+  },
+  corner: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
     borderColor: '#34C759',
   },
-  crosshairOverlay: {
-    position: 'absolute',
+  cornerTL: {
     top: '50%',
     left: '50%',
-    marginTop: -20,
-    marginLeft: -20,
-    zIndex: 1000,
+    marginTop: -32,
+    marginLeft: -32,
+    borderTopWidth: 2,
+    borderLeftWidth: 2,
+    borderTopLeftRadius: 3,
+  },
+  cornerTR: {
+    top: '50%',
+    left: '50%',
+    marginTop: -32,
+    marginLeft: 18,
+    borderTopWidth: 2,
+    borderRightWidth: 2,
+    borderTopRightRadius: 3,
+  },
+  cornerBL: {
+    top: '50%',
+    left: '50%',
+    marginTop: 18,
+    marginLeft: -32,
+    borderBottomWidth: 2,
+    borderLeftWidth: 2,
+    borderBottomLeftRadius: 3,
+  },
+  cornerBR: {
+    top: '50%',
+    left: '50%',
+    marginTop: 18,
+    marginLeft: 18,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderBottomRightRadius: 3,
   },
 });

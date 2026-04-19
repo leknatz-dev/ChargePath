@@ -1,22 +1,39 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import type { SelectionMode } from '../../types/map';
 
 type ConfirmLocationBarProps = {
   disabled: boolean;
+  selectionMode: SelectionMode;
   onConfirm: () => void;
 };
 
-export function ConfirmLocationBar({ disabled, onConfirm }: ConfirmLocationBarProps) {
+export function ConfirmLocationBar({ disabled, selectionMode, onConfirm }: ConfirmLocationBarProps) {
+  const label =
+    selectionMode === 'crosshair'
+      ? 'Confirm This Location'
+      : disabled
+      ? 'Tap a spot on the map'
+      : 'Confirm Selected Spot';
+
   return (
     <View style={styles.container}>
       <TouchableOpacity
         disabled={disabled}
         onPress={onConfirm}
         style={[styles.confirmButton, disabled && styles.disabledButton]}
+        activeOpacity={0.8}
       >
-        <Ionicons name="checkmark" size={20} color={disabled ? '#999' : '#1A1A1A'} style={styles.confirmIcon} />
-        <Text style={[styles.confirmButtonText, disabled && styles.disabledText]}>Confirm Location</Text>
+        <Ionicons
+          name="checkmark-circle"
+          size={22}
+          color={disabled ? '#bbb' : '#1A1A1A'}
+          style={styles.icon}
+        />
+        <Text style={[styles.confirmButtonText, disabled && styles.disabledText]}>
+          {label}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -28,32 +45,35 @@ const styles = StyleSheet.create({
     bottom: 30,
     left: 20,
     right: 90,
-    alignItems: 'center',
   },
   confirmButton: {
-    height: 60,
+    height: 56,
     backgroundColor: 'white',
-    elevation: 5,
-    borderRadius: 30,
-    borderWidth: 1,
+    elevation: 6,
+    borderRadius: 28,
+    borderWidth: 1.5,
     borderColor: '#1A1A1A',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
   },
-  confirmIcon: {
+  icon: {
     marginRight: 8,
   },
   confirmButtonText: {
     color: '#1A1A1A',
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: 15,
   },
   disabledButton: {
-    opacity: 0.5,
+    borderColor: '#ddd',
+    opacity: 0.6,
   },
   disabledText: {
-    color: '#999',
+    color: '#bbb',
   },
 });
