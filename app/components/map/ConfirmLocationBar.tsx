@@ -1,79 +1,114 @@
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import type { SelectionMode } from '../../types/map';
 
 type ConfirmLocationBarProps = {
+  visible: boolean;
   disabled: boolean;
   selectionMode: SelectionMode;
   onConfirm: () => void;
 };
 
-export function ConfirmLocationBar({ disabled, selectionMode, onConfirm }: ConfirmLocationBarProps) {
+export function ConfirmLocationBar({ visible, disabled, selectionMode, onConfirm }: ConfirmLocationBarProps) {
+  const slideAnim = useRef(new Animated.Value(80)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          damping: 18,
+          stiffness: 180,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: 80,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible]);
+
   const label =
     selectionMode === 'crosshair'
-      ? 'Confirm This Location'
+      ? 'Confirm Location'
       : disabled
       ? 'Tap a spot on the map'
-      : 'Confirm Selected Spot';
+      : 'Confirm Spot';
 
   return (
-    <View style={styles.container}>
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          transform: [{ translateY: slideAnim }],
+          opacity: fadeAnim,
+        },
+      ]}
+      pointerEvents={visible ? 'auto' : 'none'}
+    >
       <TouchableOpacity
         disabled={disabled}
         onPress={onConfirm}
-        style={[styles.confirmButton, disabled && styles.disabledButton]}
         activeOpacity={0.8}
+        style={[styles.pill, disabled && styles.pillDisabled]}
       >
-        <Ionicons
-          name="checkmark-circle"
-          size={22}
-          color={disabled ? '#bbb' : '#1A1A1A'}
-          style={styles.icon}
-        />
-        <Text style={[styles.confirmButtonText, disabled && styles.disabledText]}>
+        <Text style={[styles.label, disabled && styles.labelDisabled]}>
           {label}
         </Text>
       </TouchableOpacity>
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 30,
-    left: 20,
-    right: 90,
+    bottom: 100,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
   },
-  confirmButton: {
-    height: 56,
-    backgroundColor: 'white',
-    elevation: 6,
-    borderRadius: 28,
-    borderWidth: 1.5,
-    borderColor: '#1A1A1A',
-    flexDirection: 'row',
+  pill: {
+    height: 50,
+    paddingHorizontal: 40,
+    borderRadius: 25,
+    backgroundColor: '#34C759',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
+    shadowColor: '#34C759',
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
-  icon: {
-    marginRight: 8,
+  pillDisabled: {
+    backgroundColor: 'rgba(52, 199, 89, 0.35)',
+    shadowOpacity: 0,
+    elevation: 0,
   },
-  confirmButtonText: {
-    color: '#1A1A1A',
-    fontWeight: '700',
+  label: {
     fontSize: 15,
+    fontWeight: '700',
+    color: 'white',
+    letterSpacing: 0.5,
   },
-  disabledButton: {
-    borderColor: '#ddd',
-    opacity: 0.6,
-  },
-  disabledText: {
-    color: '#bbb',
+  labelDisabled: {
+    color: 'rgba(255,255,255,0.5)',
   },
 });

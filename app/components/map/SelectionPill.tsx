@@ -13,63 +13,71 @@ export function SelectionPill({ visible, selectionMode, onChangeMode }: Selectio
   const slideAnim = useRef(new Animated.Value(200)).current;
 
   useEffect(() => {
-    Animated.spring(slideAnim, {
-      toValue: visible ? 0 : 200,
-      useNativeDriver: true,
-      damping: 20,
-      stiffness: 200,
-    }).start();
-  }, [visible]);
+  Animated.timing(slideAnim, {
+    toValue: visible ? 0 : 200,
+    duration: 250,
+    useNativeDriver: true,
+  }).start();
+}, [visible]);
 
   return (
     <Animated.View
       style={[
-        styles.pill,
+        styles.pillWrapper,
         { transform: [{ translateX: slideAnim }] },
       ]}
-      pointerEvents={visible ? 'auto' : 'none'}
     >
-      {/* Crosshair mode button */}
-      <TouchableOpacity
-        style={[
-          styles.modeButton,
-          selectionMode === 'crosshair' && styles.modeButtonActive,
-          selectionMode !== 'crosshair' && styles.modeButtonInactive,
-        ]}
-        onPress={() => onChangeMode('crosshair')}
-        activeOpacity={0.8}
-      >
-        <Ionicons
-          name="scan-outline"
-          size={20}
-          color={selectionMode === 'crosshair' ? '#1A1A1A' : 'rgba(255,255,255,0.5)'}
-        />
-      </TouchableOpacity>
+      <View style={styles.pill}>
+        {/* Crosshair mode button */}
+        <TouchableOpacity
+          style={[
+            styles.modeButton,
+            selectionMode === 'crosshair'
+              ? styles.modeButtonActive
+              : styles.modeButtonInactive,
+          ]}
+          onPress={() => onChangeMode('crosshair')}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons
+            name="scan-outline"
+            size={20}
+            color={selectionMode === 'crosshair' ? '#1A1A1A' : 'rgba(255,255,255,0.6)'}
+          />
+        </TouchableOpacity>
 
-      {/* Divider */}
-      <View style={styles.divider} />
+        {/* Divider */}
+        <View style={styles.divider} />
 
-      {/* Tap mode button */}
-      <TouchableOpacity
-        style={[
-          styles.modeButton,
-          selectionMode === 'tap' && styles.modeButtonActive,
-          selectionMode !== 'tap' && styles.modeButtonInactive,
-        ]}
-        onPress={() => onChangeMode('tap')}
-        activeOpacity={0.8}
-      >
-        <Ionicons
-          name="hand-left-outline"
-          size={20}
-          color={selectionMode === 'tap' ? '#1A1A1A' : 'rgba(255,255,255,0.5)'}
-        />
-      </TouchableOpacity>
+        {/* Tap mode button */}
+        <TouchableOpacity
+          style={[
+            styles.modeButton,
+            selectionMode === 'tap'
+              ? styles.modeButtonActive
+              : styles.modeButtonInactive,
+          ]}
+          onPress={() => onChangeMode('tap')}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons
+            name="hand-left-outline"
+            size={20}
+            color={selectionMode === 'tap' ? '#1A1A1A' : 'rgba(255,255,255,0.6)'}
+          />
+        </TouchableOpacity>
+      </View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  pillWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   pill: {
     flexDirection: 'row',
     backgroundColor: '#34C759',
@@ -85,9 +93,9 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   modeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },

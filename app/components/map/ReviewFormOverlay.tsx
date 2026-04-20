@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -115,6 +116,18 @@ export function ReviewFormOverlay({
   const [vibe, setVibe] = useState<VibeType | undefined>();
   const [notes, setNotes] = useState('');
 
+  // Animation
+  const slideAnim = useRef(new Animated.Value(400)).current;
+
+  useEffect(() => {
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      damping: 20,
+      stiffness: 100,
+    }).start();
+  }, []);
+
   const isExisting = !!selectedSpot;
   const spotTypeLabel = isExisting
     ? selectedSpot.name
@@ -128,6 +141,16 @@ export function ReviewFormOverlay({
       ? current.filter((v) => v !== value)
       : [...current, value];
   }
+  const handleCancel = () => {
+    Animated.spring(slideAnim, {
+      toValue: 400,
+      useNativeDriver: true,
+      damping: 20,
+      stiffness: 100,
+    }).start(() => {
+      onCancel();
+    });
+  };
 
   const handleSubmit = () => {
     onSubmit({
@@ -144,10 +167,10 @@ export function ReviewFormOverlay({
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior="padding"
       style={styles.keyboardView}
     >
-      <View style={styles.container}>
+      <Animated.View style={[styles.container, { transform: [{ translateY: slideAnim }] }]}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.handleBar} />
@@ -309,7 +332,7 @@ export function ReviewFormOverlay({
 
           <View style={{ height: 20 }} />
         </ScrollView>
-      </View>
+      </Animated.View>
     </KeyboardAvoidingView>
   );
 }
@@ -347,14 +370,6 @@ function Chip({ label, selected, onPress, icon, multi }: ChipProps) {
           size={13}
           color={selected ? 'white' : '#666'}
           style={{ marginRight: 4 }}
-        />
-      )}
-      {multi && selected && (
-        <Ionicons
-          name="checkmark"
-          size={11}
-          color="white"
-          style={{ marginRight: 3 }}
         />
       )}
       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>

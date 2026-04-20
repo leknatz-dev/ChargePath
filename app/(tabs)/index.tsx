@@ -1,4 +1,4 @@
-﻿import React from 'react';
+﻿import React, { useEffect } from 'react';
 import {
   SafeAreaView,
   StyleSheet,
@@ -8,9 +8,9 @@ import {
 } from 'react-native';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
-
+import { useLocalSearchParams, router } from 'expo-router';
 import { useMapSelection } from '../hooks/useMapSelection';
-import { SpotMarker, GhostMarker } from '../components/map/SpotMarker';
+import { SpotMarker } from '../components/map/SpotMarker';
 import { SelectionModeControls } from '../components/map/SelectionModeControls';
 import { ConfirmLocationBar } from '../components/map/ConfirmLocationBar';
 import { ReviewFormOverlay } from '../components/map/ReviewFormOverlay';
@@ -95,6 +95,8 @@ const WAZE_MAP_STYLE = [
 ];
 
 export default function HomeScreen() {
+  const { lat, lng } = useLocalSearchParams();
+
   const {
     mapRef,
     OPOL_REGION,
@@ -103,13 +105,10 @@ export default function HomeScreen() {
     flowState,
     selectionMode,
     selectedSpot,
-    tempLocation,
     isSelecting,
     isFormVisible,
     isTapConfirmDisabled,
     showCrosshair,
-    reviewComment,
-    price,
     detailSpot,
     isDetailVisible,
     handlePoiClick,
@@ -121,63 +120,32 @@ export default function HomeScreen() {
     enterSelectionMode,
     enterReviewMode,
     cancelSelection,
+    switchMode,
     closeDetailSheet,
-    setSelectionMode,
-    setReviewComment,
-    setPrice,
     openDetailSheet,
   } = useMapSelection();
 
+  useEffect(() => {
+  if (lat && lng) {
+    const latitude = parseFloat(lat as string);
+    const longitude = parseFloat(lng as string);
+    mapRef.current?.animateToRegion({
+      latitude,
+      longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    });
+    // Find and open the spot detail
+    const spot = spots.find(s => Math.abs(s.latitude - latitude) < 0.001 && Math.abs(s.longitude - longitude) < 0.001);
+    if (spot) {
+      setTimeout(() => openDetailSheet(spot), 500);
+    }
+    router.replace('/');
+  }
+}, [lat, lng, spots, openDetailSheet]);
+
   return (
     <SafeAreaView style={styles.container}>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Floating Header */}
-      {/* ------------------------------------------------------------------ */}
-      {!isFormVisible && (
-        <View style={styles.header} pointerEvents="box-none">
-          {/* Left — Avatar */}
-          <TouchableOpacity style={styles.avatarButton}>
-            <Ionicons name="person" size={18} color="#888" />
-          </TouchableOpacity>
-
-          {/* Center — Location text + Selection Pill */}
-          <View style={styles.headerCenter} pointerEvents="box-none">
-            {/* Location text — hides when pill is visible */}
-            {!isSelecting && (
-              <View style={styles.locationWrapper}>
-                <Text style={styles.yourLocationLabel}>Your Location</Text>
-                <View style={styles.locationRow}>
-                  <Ionicons name="navigate" size={12} color="#34C759" />
-                  <Text style={styles.locationText}>Opol, Misamis Oriental</Text>
-                </View>
-              </View>
-            )}
-
-            {/* Selection pill slides in from right */}
-            {isSelecting && (
-              <SelectionPill
-                visible={isSelecting}
-                selectionMode={selectionMode}
-                onChangeMode={(mode) => setSelectionMode(mode)}
-              />
-            )}
-          </View>
-
-          {/* Right — Lightning bolt toggle */}
-          <TouchableOpacity
-            style={[styles.toggleButton, isSelecting && styles.toggleButtonActive]}
-            onPress={isSelecting ? cancelSelection : enterSelectionMode}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="flash"
-              size={20}
-              color={isSelecting ? 'white' : '#1A1A1A'}
-            />
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* ------------------------------------------------------------------ */}
       {/* Map — full screen */}
@@ -209,51 +177,87 @@ export default function HomeScreen() {
               onPress={handleSpotMarkerPress}
             />
           ))}
-
-          {isSelecting && tempLocation && (
-            <GhostMarker
-              coordinate={tempLocation}
-              selectionMode={selectionMode}
-            />
-          )}
         </MapView>
 
-        {/* Crosshair overlay — only in crosshair mode */}
+        {/* Crosshair overlay */}
         {isSelecting && (
           <SelectionModeControls
             selectionMode={selectionMode}
             showCrosshair={showCrosshair}
-            onChangeMode={(mode) => setSelectionMode(mode)}
+            onChangeMode={switchMode}
           />
         )}
       </View>
 
       {/* ------------------------------------------------------------------ */}
+      {/* Floating Header */}
+      {/* ------------------------------------------------------------------ */}
+      {!isFormVisible && (
+        <View style={styles.header} pointerEvents="box-none">
+          {/* Left — Avatar */}
+          <TouchableOpacity style={styles.avatarButton}>
+            <Ionicons name="person" size={18} color="#888" />
+          </TouchableOpacity>
+
+          {/* Center — Location text or Selection Pill */}
+          <View style={styles.headerCenter} pointerEvents="box-none">
+            {!isSelecting ? (
+              <View style={styles.locationWrapper}>
+                <Text style={styles.yourLocationLabel}>Your Location</Text>
+                <View style={styles.locationRow}>
+                  <Ionicons name="navigate" size={12} color="#34C759" />
+                  <Text style={styles.locationText}>Opol, Misamis Oriental</Text>
+                </View>
+              </View>
+            ) : (
+              <SelectionPill
+                visible={isSelecting}
+                selectionMode={selectionMode}
+                onChangeMode={switchMode}
+              />
+            )}
+          </View>
+
+          {/* Right — Lightning toggle */}
+          <TouchableOpacity
+            style={[styles.toggleButton, isSelecting && styles.toggleButtonActive]}
+            onPress={isSelecting ? cancelSelection : enterSelectionMode}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="flash"
+              size={20}
+              color={isSelecting ? 'white' : '#1A1A1A'}
+            />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
       {/* Confirm location bar */}
       {/* ------------------------------------------------------------------ */}
-      {isSelecting && (
-        <ConfirmLocationBar
-          disabled={isTapConfirmDisabled}
-          selectionMode={selectionMode}
-          onConfirm={handleConfirmLocation}
-        />
-      )}
+      <ConfirmLocationBar
+        visible={isSelecting}
+        disabled={isTapConfirmDisabled}
+        selectionMode={selectionMode}
+        onConfirm={handleConfirmLocation}
+      />
 
       {/* ------------------------------------------------------------------ */}
       {/* Review form */}
       {/* ------------------------------------------------------------------ */}
       {isFormVisible && (
-  <ReviewFormOverlay
-    selectedSpot={selectedSpot}
-    selectionMode={selectionMode}
-    reviewComment={reviewComment}
-    price={price}
-    onReviewCommentChange={setReviewComment}
-    onPriceChange={setPrice}
-    onSubmit={handleSubmitReview}
-    onCancel={cancelSelection}
-  />
-)}
+        <ReviewFormOverlay
+          selectedSpot={selectedSpot}
+          selectionMode={selectionMode}
+          reviewComment=""
+          price=""
+          onReviewCommentChange={() => {}}
+          onPriceChange={() => {}}
+          onSubmit={handleSubmitReview}
+          onCancel={cancelSelection}
+        />
+      )}
 
       {/* ------------------------------------------------------------------ */}
       {/* Spot Detail Sheet */}
@@ -272,10 +276,16 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: 'transparent',
+  },
+  mapWrapper: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  map: {
+    ...StyleSheet.absoluteFillObject,
   },
 
-  // Floating header — sits on top of map
+  // Floating header
   header: {
     position: 'absolute',
     top: 52,
@@ -290,6 +300,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     marginHorizontal: 10,
+    height: 42,
+    justifyContent: 'center',
   },
 
   // Location text
@@ -302,9 +314,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
-    textShadowColor: 'transparent',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   locationRow: {
     flexDirection: 'row',
@@ -316,12 +325,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#1A1A1A',
-    textShadowColor: 'transparent',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
 
-  // Avatar button
+  // Avatar
   avatarButton: {
     width: 42,
     height: 42,
@@ -336,7 +342,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
   },
 
-  // Lightning toggle button
+  // Toggle button
   toggleButton: {
     width: 42,
     height: 42,
@@ -354,13 +360,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#34C759',
     shadowColor: '#34C759',
     shadowOpacity: 0.4,
-  },
-
-  // Map — full screen, no margins
-  mapWrapper: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  map: {
-    ...StyleSheet.absoluteFillObject,
   },
 });

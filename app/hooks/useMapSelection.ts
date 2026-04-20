@@ -38,10 +38,6 @@ export function useMapSelection() {
   const [detailSpot, setDetailSpot] = useState<Spot | null>(null);
   const [isDetailVisible, setIsDetailVisible] = useState(false);
 
-  // Review form
-  const [reviewComment, setReviewComment] = useState('');
-  const [price, setPrice] = useState('');
-
   // ---------------------------------------------------------------------------
   // GPS
   // ---------------------------------------------------------------------------
@@ -167,21 +163,28 @@ export function useMapSelection() {
   const enterSelectionMode = () => {
     closeDetailSheet();
     setFlowState('selecting');
-    setSelectionMode('crosshair');
-    setTempLocation(mapCenter);
+    setSelectionMode('tap');       // default to tap
+    setTempLocation(null);         // null so confirm is disabled until user taps
     setSelectedSpot(null);
     setSelectedLocation(null);
   };
 
-  // ---------------------------------------------------------------------------
-  // NEW — enterReviewMode
-  // Called from "Add Review" button in SpotDetailSheet
-  // Skips the entire selection step and jumps straight to the form
-  // with the spot already pre-selected
-  // ---------------------------------------------------------------------------
+  // Switch mode — handles tempLocation correctly per mode
+  const switchMode = (mode: SelectionMode) => {
+    setSelectionMode(mode);
+    if (mode === 'crosshair') {
+      // Crosshair uses map center as temp location immediately
+      setTempLocation(mapCenter);
+    } else {
+      // Tap mode — reset so user must tap something
+      setTempLocation(null);
+      setSelectedSpot(null);
+    }
+  };
+
+  // Enter review mode directly from detail sheet
   const enterReviewMode = (spot: Spot) => {
     closeDetailSheet();
-    // Small delay so sheet closes before form opens
     setTimeout(() => {
       setSelectedSpot(spot);
       setSelectedLocation({ latitude: spot.latitude, longitude: spot.longitude });
@@ -197,8 +200,6 @@ export function useMapSelection() {
     setSelectedLocation(null);
     setSelectedSpot(null);
     setSelectionMode('tap');
-    setReviewComment('');
-    setPrice('');
   };
 
   const handleConfirmLocation = () => {
@@ -220,62 +221,60 @@ export function useMapSelection() {
   // Review submission
   // ---------------------------------------------------------------------------
   const handleSubmitReview = (formData: ReviewFormData) => {
-  if (!selectedLocation) {
-    Alert.alert('No location selected', 'Please confirm a location before submitting.');
-    return;
-  }
+    if (!selectedLocation) {
+      Alert.alert('No location selected', 'Please confirm a location before submitting.');
+      return;
+    }
 
-  const newReview = {
-    id: `review-${Date.now()}`,
-    author: 'You',
-    priceRange: formData.priceRange,
-    feeType: formData.feeType,
-    outletTypes: formData.outletTypes,
-    accessType: formData.accessType,
-    parkingTypes: formData.parkingTypes,
-    amenities: formData.amenities,
-    vibe: formData.vibe,
-    notes: formData.notes,
-    rating: 5,
-    createdAt: new Date().toISOString().split('T')[0],
-  };
-
-  if (selectedSpot) {
-    setSpots((current) =>
-      current.map((s) =>
-        s.id === selectedSpot.id
-          ? {
-              ...s,
-              reviews: [...(s.reviews ?? []), newReview],
-              verificationCount: (s.verificationCount ?? 0) + 1,
-              status: (s.verificationCount ?? 0) + 1 >= 3 ? 'verified' : s.status,
-            }
-          : s,
-      ),
-    );
-  } else {
-    const newSpot: Spot = {
-      id: `spot-${Date.now()}`,
-      name: formData.notes.trim() || 'New Charging Spot',
-      type: selectionMode === 'crosshair' ? 'independent' : 'hybrid',
-      status: 'unverified',
-      latitude: selectedLocation.latitude,
-      longitude: selectedLocation.longitude,
-      reviews: [newReview],
-      verificationCount: 1,
+    const newReview = {
+      id: `review-${Date.now()}`,
+      author: 'You',
+      priceRange: formData.priceRange,
+      feeType: formData.feeType,
+      outletTypes: formData.outletTypes,
+      accessType: formData.accessType,
+      parkingTypes: formData.parkingTypes,
+      amenities: formData.amenities,
+      vibe: formData.vibe,
+      notes: formData.notes,
+      rating: 5,
       createdAt: new Date().toISOString().split('T')[0],
     };
-    setSpots((current) => [...current, newSpot]);
-  }
 
-  setFlowState('idle');
-  setSelectionMode('tap');
-  setTempLocation(null);
-  setSelectedLocation(null);
-  setSelectedSpot(null);
-  setReviewComment('');
-  setPrice('');
-};
+    if (selectedSpot) {
+      setSpots((current) =>
+        current.map((s) =>
+          s.id === selectedSpot.id
+            ? {
+                ...s,
+                reviews: [...(s.reviews ?? []), newReview],
+                verificationCount: (s.verificationCount ?? 0) + 1,
+                status: (s.verificationCount ?? 0) + 1 >= 3 ? 'verified' : s.status,
+              }
+            : s,
+        ),
+      );
+    } else {
+      const newSpot: Spot = {
+        id: `spot-${Date.now()}`,
+        name: formData.notes.trim() || 'New Charging Spot',
+        type: selectionMode === 'crosshair' ? 'independent' : 'hybrid',
+        status: 'unverified',
+        latitude: selectedLocation.latitude,
+        longitude: selectedLocation.longitude,
+        reviews: [newReview],
+        verificationCount: 1,
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+      setSpots((current) => [...current, newSpot]);
+    }
+
+    setFlowState('idle');
+    setSelectionMode('tap');
+    setTempLocation(null);
+    setSelectedLocation(null);
+    setSelectedSpot(null);
+  };
 
   // ---------------------------------------------------------------------------
   // Derived flags
@@ -299,8 +298,6 @@ export function useMapSelection() {
     selectedLocation,
     detailSpot,
     isDetailVisible,
-    reviewComment,
-    price,
     isSelecting,
     isFormVisible,
     isTapConfirmDisabled,
@@ -312,12 +309,10 @@ export function useMapSelection() {
     handleConfirmLocation,
     handleSubmitReview,
     enterSelectionMode,
-    enterReviewMode,       // ← new
+    enterReviewMode,
     cancelSelection,
+    switchMode,
     openDetailSheet,
     closeDetailSheet,
-    setSelectionMode,
-    setReviewComment,
-    setPrice,
   };
 }
