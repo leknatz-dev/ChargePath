@@ -1,12 +1,15 @@
-﻿import React, { useEffect } from 'react';
+﻿// app/(tabs)/index.tsx
+
+import React, { useEffect, useState } from 'react';
 import {
+  Linking,
   SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useMapSelection } from '../hooks/useMapSelection';
@@ -16,6 +19,8 @@ import { ConfirmLocationBar } from '../components/map/ConfirmLocationBar';
 import { ReviewFormOverlay } from '../components/map/ReviewFormOverlay';
 import { SpotDetailSheet } from '../components/map/SpotDetailSheet';
 import { SelectionPill } from '../components/map/SelectionPill';
+import { StartJourneyBar } from '../components/map/StartJourneyBar';
+import type { LatLng } from '../utils/routing';
 
 const WAZE_MAP_STYLE = [
   { elementType: 'geometry', stylers: [{ color: '#f5f5f5' }] },
@@ -94,15 +99,24 @@ const WAZE_MAP_STYLE = [
   },
 ];
 
+type RouteState = {
+  coordinates: LatLng[];
+  distanceMeters: number;
+  durationSeconds: number;
+  destinationLat: number;
+  destinationLng: number;
+} | null;
+
 export default function HomeScreen() {
   const { lat, lng } = useLocalSearchParams();
+  const [activeRoute, setActiveRoute] = useState<RouteState>(null);
 
   const {
     mapRef,
+    location,
     OPOL_REGION,
     zoom,
     spots,
-    flowState,
     selectionMode,
     selectedSpot,
     isSelecting,
@@ -125,24 +139,61 @@ export default function HomeScreen() {
     openDetailSheet,
   } = useMapSelection();
 
+  const userLocation: LatLng | null = location
+    ? {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      }
+    : null;
+
   useEffect(() => {
-  if (lat && lng) {
-    const latitude = parseFloat(lat as string);
-    const longitude = parseFloat(lng as string);
-    mapRef.current?.animateToRegion({
-      latitude,
-      longitude,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    });
-    // Find and open the spot detail
-    const spot = spots.find(s => Math.abs(s.latitude - latitude) < 0.001 && Math.abs(s.longitude - longitude) < 0.001);
-    if (spot) {
-      setTimeout(() => openDetailSheet(spot), 500);
+    if (lat && lng) {
+      const latitude = parseFloat(lat as string);
+      const longitude = parseFloat(lng as string);
+      mapRef.current?.animateToRegion({
+        latitude,
+        longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
+      const spot = spots.find(
+        (s) =>
+          Math.abs(s.latitude - latitude) < 0.001 &&
+          Math.abs(s.longitude - longitude) < 0.001
+      );
+      if (spot) {
+        setTimeout(() => openDetailSheet(spot), 500);
+      }
+      router.replace('/');
     }
-    router.replace('/');
-  }
-}, [lat, lng, spots, openDetailSheet]);
+  }, [lat, lng, spots, openDetailSheet]);
+
+  const handleRouteReady = (
+    coordinates: LatLng[],
+    distanceMeters: number,
+    durationSeconds: number
+  ) => {
+    if (!detailSpot) return;
+    setActiveRoute({
+      coordinates,
+      distanceMeters,
+      durationSeconds,
+      destinationLat: detailSpot.latitude,
+      destinationLng: detailSpot.longitude,
+    });
+  };
+
+  const handleClearRoute = () => {
+    setActiveRoute(null);
+  };
+
+  const handleStartJourney = () => {
+    if (!activeRoute) return;
+    const url =
+      `https://www.google.com/maps/dir/?api=1` +
+      `&destination=${activeRoute.destinationLat},${activeRoute.destinationLng}`;
+    Linking.openURL(url);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -177,9 +228,19 @@ export default function HomeScreen() {
               onPress={handleSpotMarkerPress}
             />
           ))}
+
+          {/* Route polyline — persists after sheet closes */}
+          {activeRoute && activeRoute.coordinates.length > 0 && (
+            <Polyline
+              coordinates={activeRoute.coordinates}
+              strokeColor="#34C759"
+              strokeWidth={4}
+              lineJoin="round"
+              lineCap="round"
+            />
+          )}
         </MapView>
 
-        {/* Crosshair overlay */}
         {isSelecting && (
           <SelectionModeControls
             selectionMode={selectionMode}
@@ -194,12 +255,10 @@ export default function HomeScreen() {
       {/* ------------------------------------------------------------------ */}
       {!isFormVisible && (
         <View style={styles.header} pointerEvents="box-none">
-          {/* Left — Avatar */}
           <TouchableOpacity style={styles.avatarButton}>
             <Ionicons name="person" size={18} color="#888" />
           </TouchableOpacity>
 
-          {/* Center — Location text or Selection Pill */}
           <View style={styles.headerCenter} pointerEvents="box-none">
             {!isSelecting ? (
               <View style={styles.locationWrapper}>
@@ -218,7 +277,6 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* Right — Lightning toggle */}
           <TouchableOpacity
             style={[styles.toggleButton, isSelecting && styles.toggleButtonActive]}
             onPress={isSelecting ? cancelSelection : enterSelectionMode}
@@ -265,8 +323,21 @@ export default function HomeScreen() {
       <SpotDetailSheet
         spot={detailSpot}
         visible={isDetailVisible}
+        userLocation={userLocation}
         onClose={closeDetailSheet}
         onAddReview={(spot) => enterReviewMode(spot)}
+        onRouteReady={handleRouteReady}
+      />
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Start Journey Bar — visible after route is set, sheet is closed */}
+      {/* ------------------------------------------------------------------ */}
+      <StartJourneyBar
+        visible={!!activeRoute && !isDetailVisible && !isFormVisible && !isSelecting}
+        distanceMeters={activeRoute?.distanceMeters ?? 0}
+        durationSeconds={activeRoute?.durationSeconds ?? 0}
+        onStartJourney={handleStartJourney}
+        onClearRoute={handleClearRoute}
       />
 
     </SafeAreaView>
@@ -284,8 +355,6 @@ const styles = StyleSheet.create({
   map: {
     ...StyleSheet.absoluteFillObject,
   },
-
-  // Floating header
   header: {
     position: 'absolute',
     top: 52,
@@ -303,8 +372,6 @@ const styles = StyleSheet.create({
     height: 42,
     justifyContent: 'center',
   },
-
-  // Location text
   locationWrapper: {
     alignItems: 'center',
   },
@@ -326,8 +393,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1A1A1A',
   },
-
-  // Avatar
   avatarButton: {
     width: 42,
     height: 42,
@@ -341,8 +406,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
   },
-
-  // Toggle button
   toggleButton: {
     width: 42,
     height: 42,

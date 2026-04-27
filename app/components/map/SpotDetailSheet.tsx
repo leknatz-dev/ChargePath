@@ -1,4 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+// app/components/map/SpotDetailSheet.tsx
+
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -11,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Spot, Review } from '../../types/map';
+import { fetchRoute, formatDistance, formatDuration, type LatLng, type RouteResult } from '../../utils/routing';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SHEET_HEIGHT = SCREEN_HEIGHT * 0.62;
@@ -18,12 +21,24 @@ const SHEET_HEIGHT = SCREEN_HEIGHT * 0.62;
 type SpotDetailSheetProps = {
   spot: Spot | null;
   visible: boolean;
+  userLocation: LatLng | null;
   onClose: () => void;
   onAddReview: (spot: Spot) => void;
+  onRouteReady: (coordinates: LatLng[], distanceMeters: number, durationSeconds: number) => void;
 };
 
-export function SpotDetailSheet({ spot, visible, onClose, onAddReview }: SpotDetailSheetProps) {
+export function SpotDetailSheet({
+  spot,
+  visible,
+  userLocation,
+  onClose,
+  onAddReview,
+  onRouteReady,
+}: SpotDetailSheetProps) {
   const slideAnim = useRef(new Animated.Value(SHEET_HEIGHT)).current;
+  const [loadingRoute, setLoadingRoute] = useState(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeFetched, setRouteFetched] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -39,6 +54,9 @@ export function SpotDetailSheet({ spot, visible, onClose, onAddReview }: SpotDet
         duration: 220,
         useNativeDriver: true,
       }).start();
+      // Reset local state only — route on map persists
+      setRouteError(null);
+      setRouteFetched(false);
     }
   }, [visible]);
 
@@ -57,6 +75,32 @@ export function SpotDetailSheet({ spot, visible, onClose, onAddReview }: SpotDet
   const typeLabel = spot.type === 'hybrid' ? 'Business Outlet' : 'Standalone Spot';
   const typeIcon = spot.type === 'hybrid' ? 'business-outline' : 'flash-outline';
 
+  const handleAddToRoute = async () => {
+    if (!userLocation) {
+      setRouteError('Enable location to use routing.');
+      return;
+    }
+
+    setLoadingRoute(true);
+    setRouteError(null);
+
+    const destination: LatLng = {
+      latitude: spot.latitude,
+      longitude: spot.longitude,
+    };
+
+    const result = await fetchRoute(userLocation, destination);
+
+    if (result) {
+      setRouteFetched(true);
+      onRouteReady(result.coordinates, result.distanceMeters, result.durationSeconds);
+    } else {
+      setRouteError('Could not fetch route. Try again.');
+    }
+
+    setLoadingRoute(false);
+  };
+
   return (
     <Modal
       visible={visible}
@@ -72,7 +116,6 @@ export function SpotDetailSheet({ spot, visible, onClose, onAddReview }: SpotDet
       <Animated.View
         style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}
       >
-        {/* Handle bar */}
         <View style={styles.handleBar} />
 
         <ScrollView
@@ -83,16 +126,13 @@ export function SpotDetailSheet({ spot, visible, onClose, onAddReview }: SpotDet
           {/* Header row */}
           <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
-              {/* Type badge */}
               <View style={styles.typeBadgeRow}>
                 <Ionicons name={typeIcon} size={13} color="#666" />
                 <Text style={styles.typeBadgeText}>{typeLabel}</Text>
                 <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
                 <Text style={[styles.statusLabel, { color: statusColor }]}>{statusLabel}</Text>
               </View>
-
               <Text style={styles.spotName}>{spot.name}</Text>
-
               {spot.address ? (
                 <View style={styles.addressRow}>
                   <Ionicons name="location-outline" size={13} color="#888" />
@@ -100,7 +140,6 @@ export function SpotDetailSheet({ spot, visible, onClose, onAddReview }: SpotDet
                 </View>
               ) : null}
             </View>
-
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <Ionicons name="close" size={20} color="#555" />
             </TouchableOpacity>
@@ -128,6 +167,24 @@ export function SpotDetailSheet({ spot, visible, onClose, onAddReview }: SpotDet
             />
           </View>
 
+          {/* Route success banner */}
+          {routeFetched && (
+            <View style={styles.routeSuccessBanner}>
+              <Ionicons name="checkmark-circle" size={16} color="#34C759" />
+              <Text style={styles.routeSuccessText}>
+                Route added — close sheet to review it
+              </Text>
+            </View>
+          )}
+
+          {/* Route error */}
+          {routeError && (
+            <View style={styles.routeErrorCard}>
+              <Ionicons name="warning-outline" size={14} color="#FF3B30" />
+              <Text style={styles.routeErrorText}>{routeError}</Text>
+            </View>
+          )}
+
           {/* Outlet description */}
           {spot.outletDescription ? (
             <Section title="Outlet">
@@ -145,7 +202,7 @@ export function SpotDetailSheet({ spot, visible, onClose, onAddReview }: SpotDet
             </Section>
           ) : null}
 
-          {/* Photos placeholder */}
+          {/* Photos */}
           <Section title="Photos">
             {spot.photos && spot.photos.length > 0 ? (
               <Text style={styles.bodyText}>{spot.photos.length} photo(s)</Text>
@@ -180,14 +237,26 @@ export function SpotDetailSheet({ spot, visible, onClose, onAddReview }: SpotDet
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, styles.actionButtonPrimary]}
-            onPress={() => {
-              // Placeholder — routing implemented in Phase 3
-              onClose();
-            }}
+            style={[
+              styles.actionButton,
+              styles.actionButtonPrimary,
+              (loadingRoute || routeFetched) && styles.actionButtonDisabled,
+            ]}
+            onPress={handleAddToRoute}
+            disabled={loadingRoute || routeFetched}
           >
-            <Ionicons name="navigate" size={18} color="white" />
-            <Text style={[styles.actionButtonText, { color: 'white' }]}>Add to Route</Text>
+            <Ionicons
+              name={
+                loadingRoute ? 'hourglass-outline'
+                : routeFetched ? 'checkmark-circle'
+                : 'map-outline'
+              }
+              size={18}
+              color="white"
+            />
+            <Text style={[styles.actionButtonText, { color: 'white' }]}>
+              {loadingRoute ? 'Fetching...' : routeFetched ? 'Route Added' : 'Add to Route'}
+            </Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -230,7 +299,6 @@ function InfoCard({
 
 function ReviewCard({ review }: { review: Review }) {
   const stars = Array.from({ length: 5 }, (_, i) => i < review.rating);
-
   return (
     <View style={styles.reviewCard}>
       <View style={styles.reviewHeader}>
@@ -251,13 +319,10 @@ function ReviewCard({ review }: { review: Review }) {
             <Text style={styles.reviewDate}> · {review.createdAt}</Text>
           </View>
         </View>
-        {review.price ? (
-          <View style={styles.reviewPriceBadge}>
-            <Text style={styles.reviewPriceText}>{review.price}</Text>
-          </View>
-        ) : null}
       </View>
-      <Text style={styles.reviewComment}>{review.comment}</Text>
+      {review.notes ? (
+        <Text style={styles.reviewComment}>{review.notes}</Text>
+      ) : null}
     </View>
   );
 }
@@ -298,8 +363,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 16,
   },
-
-  // Header
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -354,12 +417,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // Info cards
   infoRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   infoCard: {
     flex: 1,
@@ -380,8 +441,35 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
     textAlign: 'center',
   },
-
-  // Section
+  routeSuccessBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F0FBF4',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#C8F0D5',
+  },
+  routeSuccessText: {
+    fontSize: 13,
+    color: '#34C759',
+    fontWeight: '600',
+  },
+  routeErrorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF2F2',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 16,
+  },
+  routeErrorText: {
+    fontSize: 13,
+    color: '#FF3B30',
+  },
   section: {
     marginBottom: 20,
   },
@@ -398,8 +486,6 @@ const styles = StyleSheet.create({
     color: '#444',
     lineHeight: 20,
   },
-
-  // Tips
   tipsBox: {
     flexDirection: 'row',
     backgroundColor: '#FFF9F0',
@@ -414,8 +500,6 @@ const styles = StyleSheet.create({
     color: '#555',
     lineHeight: 20,
   },
-
-  // Photos
   photosPlaceholder: {
     height: 90,
     backgroundColor: '#F8F9FA',
@@ -431,8 +515,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#bbb',
   },
-
-  // Reviews
   emptyText: {
     fontSize: 13,
     color: '#aaa',
@@ -480,24 +562,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#999',
   },
-  reviewPriceBadge: {
-    backgroundColor: '#E8F8EE',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  reviewPriceText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#34C759',
-  },
   reviewComment: {
     fontSize: 13,
     color: '#555',
     lineHeight: 18,
   },
-
-  // Action bar
   actionBar: {
     flexDirection: 'row',
     paddingHorizontal: 20,
@@ -524,6 +593,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0FBF4',
     borderWidth: 1.5,
     borderColor: '#34C759',
+  },
+  actionButtonDisabled: {
+    backgroundColor: 'rgba(52, 199, 89, 0.5)',
   },
   actionButtonText: {
     fontWeight: '700',
