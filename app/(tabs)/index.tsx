@@ -1,5 +1,7 @@
 ﻿// app/(tabs)/index.tsx
 
+import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Linking,
@@ -10,21 +12,19 @@ import {
   View,
 } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, router } from 'expo-router';
-import { useMapSelection } from '../hooks/useMapSelection';
-import { SpotMarker } from '../components/map/SpotMarker';
-import { SelectionModeControls } from '../components/map/SelectionModeControls';
 import { ConfirmLocationBar } from '../components/map/ConfirmLocationBar';
 import { ReviewFormOverlay } from '../components/map/ReviewFormOverlay';
-import { SpotDetailSheet } from '../components/map/SpotDetailSheet';
+import { SelectionModeControls } from '../components/map/SelectionModeControls';
 import { SelectionPill } from '../components/map/SelectionPill';
+import { SpotDetailSheet } from '../components/map/SpotDetailSheet';
+import { GhostMarker, SpotMarker } from '../components/map/SpotMarker';
 import { StartJourneyBar } from '../components/map/StartJourneyBar';
+import { useMapSelection } from '../hooks/useMapSelection';
 import type { LatLng } from '../utils/routing';
 
 const WAZE_MAP_STYLE = [
   { elementType: 'geometry', stylers: [{ color: '#f5f5f5' }] },
-  { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+  { elementType: 'labels.icon', stylers: [{ visibility: 'on' }] },
   { elementType: 'labels.text.fill', stylers: [{ color: '#616161' }] },
   { elementType: 'labels.text.stroke', stylers: [{ color: '#f5f5f5' }] },
   {
@@ -119,6 +119,7 @@ export default function HomeScreen() {
     spots,
     selectionMode,
     selectedSpot,
+    tempLocation,
     isSelecting,
     isFormVisible,
     isTapConfirmDisabled,
@@ -207,6 +208,7 @@ export default function HomeScreen() {
           provider={PROVIDER_GOOGLE}
           style={styles.map}
           showsUserLocation
+          showsPointsOfInterest
           showsMyLocationButton={false}
           onPoiClick={handlePoiClick}
           onPress={handleMapPress}
@@ -228,6 +230,11 @@ export default function HomeScreen() {
               onPress={handleSpotMarkerPress}
             />
           ))}
+
+          {/* Ghost marker for tapped Google POI in Touch Mode */}
+          {isSelecting && selectionMode === 'tap' && tempLocation && !selectedSpot && (
+            <GhostMarker coordinate={tempLocation} selectionMode="tap" />
+          )}
 
           {/* Route polyline — persists after sheet closes */}
           {activeRoute && activeRoute.coordinates.length > 0 && (
@@ -255,8 +262,12 @@ export default function HomeScreen() {
       {/* ------------------------------------------------------------------ */}
       {!isFormVisible && (
         <View style={styles.header} pointerEvents="box-none">
-          <TouchableOpacity style={styles.avatarButton}>
-            <Ionicons name="person" size={18} color="#888" />
+          <TouchableOpacity
+            style={styles.avatarButton}
+            onPress={() => router.push('/battery-calculator')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="calculator-outline" size={18} color="#888" />
           </TouchableOpacity>
 
           <View style={styles.headerCenter} pointerEvents="box-none">

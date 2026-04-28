@@ -46,7 +46,9 @@ export function SpotMarker({
     return (
       <Marker
         coordinate={{ latitude: spot.latitude, longitude: spot.longitude }}
-        anchor={{ x: 0.5, y: 1 }}
+        // Slightly lift hybrid pin so it appears above tapped Google POI pins.
+        anchor={{ x: 0.5, y: 1.08 }}
+        zIndex={20}
         tracksViewChanges={false}
         onPress={() => onPress(spot)}
         image={require('../../../assets/images/pin-hybrid.png')}
@@ -79,7 +81,8 @@ export function GhostMarker({ coordinate, selectionMode }: GhostMarkerProps) {
   return (
     <Marker
       coordinate={coordinate}
-      anchor={{ x: 0.5, y: 1 }}
+      anchor={{ x: 0.5, y: 1.08 }}
+      zIndex={50}
       tracksViewChanges={true}
       image={
         selectionMode === 'crosshair'
